@@ -1,0 +1,12 @@
+{
+  "name": "denver-recs",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "tag": "node scripts/tag-recs.mjs",
+    "dev": "npx serve public"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0"
+  }
+}

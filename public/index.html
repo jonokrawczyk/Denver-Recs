@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Denver Recs</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --header-bg: #1a1a2e;
+  --header-accent: #16213e;
+  --bg: #f0f2f5;
+  --card-bg: #ffffff;
+  --text: #1a1a2e;
+  --text-secondary: #5a5a7a;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+  --radius: 12px;
+  --cat-restaurant: #e74c3c;
+  --cat-bar: #9b59b6;
+  --cat-coffee: #795548;
+  --cat-outdoors: #27ae60;
+  --cat-shopping: #f39c12;
+  --cat-entertainment: #e67e22;
+  --cat-art: #1abc9c;
+  --cat-music: #3498db;
+  --cat-nightlife: #8e44ad;
+  --cat-wellness: #2ecc71;
+  --cat-other: #95a5a6;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Header */
+.header {
+  background: var(--header-bg);
+  padding: 12px 16px;
+  padding-top: max(12px, env(safe-area-inset-top));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 1000;
+}
+
+.header h1 {
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.header h1 span {
+  color: #e74c3c;
+}
+
+/* View Toggle */
+.view-toggle {
+  display: flex;
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.view-toggle button {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.5);
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.view-toggle button.active {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+}
+
+/* Search + Filters Bar */
+.controls {
+  background: #fff;
+  padding: 10px 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  position: relative;
+  z-index: 999;
+}
+
+.search-box {
+  position: relative;
+  margin-bottom: 10px;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 10px 14px 10px 38px;
+  border: 2px solid #e8e8f0;
+  border-radius: 10px;
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+  background: #f8f8fc;
+}
+
+.search-box input:focus {
+  border-color: var(--header-bg);
+  background: #fff;
+}
+
+.search-box svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #999;
+}
+
+.chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.chips::-webkit-scrollbar { display: none; }
+
+.chip {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  background: #f0f0f5;
+  color: var(--text-secondary);
+}
+
+.chip.active {
+  color: #fff;
+}
+
+/* Main Content Area */
+.content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  height: calc(100vh - var(--header-h) - var(--controls-h));
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Map */
+#map {
+  width: 100%;
+  height: 100%;
+  display: none;
+}
+
+#map.active { display: block; }
+
+.leaflet-popup-content-wrapper {
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-lg) !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  min-width: 220px !important;
+}
+
+.popup-inner {
+  padding: 14px 16px;
+}
+
+.popup-inner h3 {
+  font-size: 16px;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+.popup-inner .popup-cat {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.popup-inner .popup-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.popup-inner .popup-price {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.popup-inner .popup-vibes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.popup-inner .vibe-pill {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #f0f0f5;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.popup-inner .nav-btn {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  color: #fff;
+  text-align: center;
+  text-decoration: none;
+}
+
+/* List View */
+.list-view {
+  display: none;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 16px;
+  padding-bottom: calc(80px + var(--safe-bottom));
+  height: 100%;
+}
+
+.list-view.active { display: block; }
+
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.card:active {
+  transform: scale(0.98);
+}
+
+.card-main {
+  padding: 14px 16px;
+}
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.card-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  flex: 1;
+  margin-right: 8px;
+}
+
+.card-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  padding: 3px 10px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.card-neighborhood {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.card-desc {
+  font-size: 14px;
+  color: #555;
+  line-height: 1.45;
+  margin-bottom: 8px;
+}
+
+.card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-vibes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+}
+
+.vibe-pill {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.card-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.card-expand {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.card.expanded .card-expand {
+  max-height: 120px;
+}
+
+.card-expand-inner {
+  padding: 0 16px 14px;
+  border-top: 1px solid #f0f0f5;
+  padding-top: 12px;
+}
+
+.card-address {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.card-nav-btn {
+  display: inline-block;
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.card-nav-btn:active { opacity: 0.8; }
+
+/* FAB */
+.fab {
+  position: fixed;
+  bottom: calc(20px + var(--safe-bottom));
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--header-bg);
+  color: #fff;
+  border: none;
+  font-size: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(26,26,46,0.35);
+  cursor: pointer;
+  z-index: 1001;
+  transition: transform 0.2s, background 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.fab:active { transform: scale(0.9); }
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 2000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+}
+
+.modal-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-sheet {
+  background: #fff;
+  width: 100%;
+  max-width: 500px;
+  border-radius: 20px 20px 0 0;
+  padding: 20px 20px calc(20px + var(--safe-bottom));
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-overlay.open .modal-sheet {
+  transform: translateY(0);
+}
+
+.modal-handle {
+  width: 36px;
+  height: 4px;
+  background: #ddd;
+  border-radius: 2px;
+  margin: 0 auto 16px;
+}
+
+.modal-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.form-group {
+  margin-bottom: 14px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid #e8e8f0;
+  border-radius: 10px;
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+  background: #f8f8fc;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: var(--header-bg);
+  background: #fff;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+
+.btn:active { opacity: 0.8; }
+
+.btn-primary {
+  background: var(--header-bg);
+  color: #fff;
+}
+
+.btn-secondary {
+  background: #e8e8f0;
+  color: var(--text);
+}
+
+.btn-copy {
+  background: #27ae60;
+  color: #fff;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: calc(90px + var(--safe-bottom));
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #333;
+  color: #fff;
+  padding: 10px 24px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 3000;
+  opacity: 0;
+  transition: all 0.3s;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+
+.empty-state svg {
+  margin-bottom: 12px;
+  opacity: 0.4;
+}
+
+.empty-state p {
+  font-size: 15px;
+}
+
+/* Leaflet marker overrides */
+.custom-marker {
+  border: none !important;
+  background: none !important;
+}
+
+.marker-pin {
+  width: 28px;
+  height: 28px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  border: 2px solid #fff;
+}
+
+.marker-pin::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  background: rgba(255,255,255,0.7);
+  border-radius: 50%;
+  transform: rotate(45deg);
+}
+
+/* Desktop tweaks */
+@media (min-width: 768px) {
+  .header { padding: 14px 24px; }
+  .controls { padding: 12px 24px; }
+  .list-view { padding: 16px 24px; max-width: 700px; margin: 0 auto; }
+  .modal-sheet { border-radius: 20px; margin-bottom: 20px; }
+}
+</style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a1a2e">
+</head>
+<body>
+
+<div class="app-shell">
+  <!-- Header -->
+  <header class="header">
+    <h1>Denver <span>Recs</span></h1>
+    <div class="view-toggle">
+      <button class="active" data-view="map" onclick="switchView('map')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+        Map
+      </button>
+      <button data-view="list" onclick="switchView('list')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        List
+      </button>
+    </div>
+  </header>
+
+  <!-- Controls -->
+  <div class="controls">
+    <div class="search-box">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="searchInput" placeholder="Search name, neighborhood, vibes..." oninput="applyFilters()">
+    </div>
+    <div class="chips" id="categoryChips"></div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+    <div id="map"></div>
+    <div class="list-view" id="listView"></div>
+  </div>
+</div>
+
+<!-- FAB -->
+<button class="fab" onclick="openModal()" aria-label="Add recommendation">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</button>
+
+<!-- Add Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Add a Rec</div>
+    <form id="addForm" onsubmit="handleSubmit(event)">
+      <div class="form-group">
+        <label>Name *</label>
+        <input type="text" id="f-name" required placeholder="e.g. My Favorite Spot">
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="f-category">
+          <option value="Restaurant">Restaurant</option>
+          <option value="Bar">Bar</option>
+          <option value="Coffee">Coffee</option>
+          <option value="Outdoors">Outdoors</option>
+          <option value="Shopping">Shopping</option>
+          <option value="Entertainment">Entertainment</option>
+          <option value="Art">Art</option>
+          <option value="Music">Music</option>
+          <option value="Nightlife">Nightlife</option>
+          <option value="Wellness">Wellness</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Vibes (comma separated)</label>
+        <input type="text" id="f-vibes" placeholder="e.g. cozy, date night, trendy">
+      </div>
+      <div class="form-group">
+        <label>Neighborhood</label>
+        <input type="text" id="f-neighborhood" placeholder="e.g. RiNo, LoHi, Capitol Hill">
+      </div>
+      <div class="form-group">
+        <label>Address</label>
+        <input type="text" id="f-address" placeholder="Full address">
+      </div>
+      <div class="form-group">
+        <label>Price Range</label>
+        <input type="text" id="f-price" placeholder="e.g. $, $$, $$$">
+      </div>
+      <div class="form-group">
+        <label>Notes / Description</label>
+        <textarea id="f-desc" placeholder="What makes this place great?"></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add</button>
+      </div>
+      <div class="form-actions" style="margin-top:8px">
+        <button type="button" class="btn btn-copy" onclick="copyAllJSON()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy All as JSON
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// --- State ---
+let places = [];
+let activeCategories = new Set();
+let currentView = 'map';
+let map = null;
+let markers = [];
+
+const CATEGORY_COLORS = {
+  Restaurant: '#e74c3c',
+  Bar: '#9b59b6',
+  Coffee: '#795548',
+  Outdoors: '#27ae60',
+  Shopping: '#f39c12',
+  Entertainment: '#e67e22',
+  Art: '#1abc9c',
+  Music: '#3498db',
+  Nightlife: '#8e44ad',
+  Wellness: '#2ecc71',
+  Other: '#95a5a6'
+};
+
+const ALL_CATEGORIES = Object.keys(CATEGORY_COLORS);
+
+// --- Init ---
+document.addEventListener('DOMContentLoaded', async () => {
+  initMap();
+  buildChips();
+  try {
+    const res = await fetch('data.json');
+    if (res.ok) {
+      const data = await res.json();
+      places = data;
+    }
+  } catch (e) {
+    console.warn('Could not load data.json, starting empty.', e);
+  }
+  applyFilters();
+});
+
+// --- Map ---
+function initMap() {
+  map = L.map('map', {
+    center: [39.7392, -104.9903],
+    zoom: 12,
+    zoomControl: false
+  });
+
+  L.control.zoom({ position: 'topright' }).addTo(map);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 19
+  }).addTo(map);
+
+  document.getElementById('map').classList.add('active');
+}
+
+function createMarkerIcon(category) {
+  const color = CATEGORY_COLORS[category] || CATEGORY_COLORS.Other;
+  return L.divIcon({
+    className: 'custom-marker',
+    html: `<div class="marker-pin" style="background:${color}"></div>`,
+    iconSize: [28, 36],
+    iconAnchor: [14, 36],
+    popupAnchor: [0, -36]
+  });
+}
+
+function updateMarkers(filtered) {
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+
+  filtered.forEach(p => {
+    if (!p.lat || !p.lng) return;
+    const color = CATEGORY_COLORS[p.category] || CATEGORY_COLORS.Other;
+    const vibesHtml = (p.vibes || []).map(v =>
+      `<span class="vibe-pill">${esc(v)}</span>`
+    ).join('');
+
+    const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(p.address || (p.lat + ',' + p.lng))}`;
+
+    const popup = `
+      <div class="popup-inner">
+        <h3>${esc(p.name)}</h3>
+        <span class="popup-cat" style="background:${color}">${esc(p.category)}</span>
+        ${p.priceRange ? `<span class="popup-price" style="margin-left:8px">${esc(p.priceRange)}</span>` : ''}
+        <div class="popup-desc">${esc(p.description || '')}</div>
+        <div class="popup-vibes">${vibesHtml}</div>
+        <a href="${navUrl}" target="_blank" rel="noopener" class="nav-btn" style="background:${color}">
+          Navigate &rarr;
+        </a>
+      </div>
+    `;
+
+    const marker = L.marker([p.lat, p.lng], { icon: createMarkerIcon(p.category) })
+      .bindPopup(popup, { maxWidth: 280, closeButton: true })
+      .addTo(map);
+    markers.push(marker);
+  });
+}
+
+// --- List ---
+function renderList(filtered) {
+  const container = document.getElementById('listView');
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <p>No places found. Try adjusting your filters.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const sorted = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+  const color = p => CATEGORY_COLORS[p.category] || CATEGORY_COLORS.Other;
+
+  container.innerHTML = sorted.map((p, i) => {
+    const vibesHtml = (p.vibes || []).map(v =>
+      `<span class="vibe-pill" style="background:${color(p)}18;color:${color(p)}">${esc(v)}</span>`
+    ).join('');
+    const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(p.address || '')}`;
+
+    return `
+      <div class="card" onclick="toggleCard(this)">
+        <div class="card-main">
+          <div class="card-header">
+            <div class="card-name">${esc(p.name)}</div>
+            <span class="card-badge" style="background:${color(p)}">${esc(p.category)}</span>
+          </div>
+          <div class="card-neighborhood">${esc(p.neighborhood || '')}</div>
+          <div class="card-desc">${esc(p.description || '')}</div>
+          <div class="card-meta">
+            <div class="card-vibes">${vibesHtml}</div>
+            ${p.priceRange ? `<span class="card-price">${esc(p.priceRange)}</span>` : ''}
+          </div>
+        </div>
+        <div class="card-expand">
+          <div class="card-expand-inner">
+            ${p.address ? `<div class="card-address">${esc(p.address)}</div>` : ''}
+            <a href="${navUrl}" target="_blank" rel="noopener" class="card-nav-btn" style="background:${color(p)}" onclick="event.stopPropagation()">
+              Navigate &rarr;
+            </a>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleCard(el) {
+  el.classList.toggle('expanded');
+}
+
+// --- Filters ---
+function buildChips() {
+  const container = document.getElementById('categoryChips');
+  container.innerHTML = ALL_CATEGORIES.map(cat => {
+    const color = CATEGORY_COLORS[cat];
+    return `<div class="chip" data-cat="${cat}" onclick="toggleChip(this)" style="border-color:${color}40">${cat}</div>`;
+  }).join('');
+}
+
+function toggleChip(el) {
+  const cat = el.dataset.cat;
+  const color = CATEGORY_COLORS[cat];
+  if (activeCategories.has(cat)) {
+    activeCategories.delete(cat);
+    el.classList.remove('active');
+    el.style.background = '#f0f0f5';
+    el.style.color = '';
+  } else {
+    activeCategories.add(cat);
+    el.classList.add('active');
+    el.style.background = color;
+    el.style.color = '#fff';
+  }
+  applyFilters();
+}
+
+function applyFilters() {
+  const q = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+
+  let filtered = places.filter(p => {
+    // Category filter
+    if (activeCategories.size > 0 && !activeCategories.has(p.category)) return false;
+
+    // Search filter
+    if (q) {
+      const haystack = [
+        p.name,
+        p.neighborhood,
+        p.description,
+        ...(p.vibes || [])
+      ].join(' ').toLowerCase();
+      return haystack.includes(q);
+    }
+    return true;
+  });
+
+  updateMarkers(filtered);
+  renderList(filtered);
+}
+
+// --- View Toggle ---
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.view-toggle button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === view);
+  });
+  document.getElementById('map').classList.toggle('active', view === 'map');
+  document.getElementById('listView').classList.toggle('active', view === 'list');
+
+  if (view === 'map') {
+    setTimeout(() => map.invalidateSize(), 100);
+  }
+}
+
+// --- Modal ---
+function openModal() {
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+function handleOverlayClick(e) {
+  if (e.target === e.currentTarget) closeModal();
+}
+
+function handleSubmit(e) {
+  e.preventDefault();
+
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) return;
+
+  const vibesRaw = document.getElementById('f-vibes').value.trim();
+  const vibes = vibesRaw ? vibesRaw.split(',').map(v => v.trim()).filter(Boolean) : [];
+
+  const newPlace = {
+    name,
+    category: document.getElementById('f-category').value,
+    vibes,
+    neighborhood: document.getElementById('f-neighborhood').value.trim(),
+    address: document.getElementById('f-address').value.trim(),
+    lat: null,
+    lng: null,
+    description: document.getElementById('f-desc').value.trim(),
+    priceRange: document.getElementById('f-price').value.trim()
+  };
+
+  places.push(newPlace);
+  applyFilters();
+  closeModal();
+  document.getElementById('addForm').reset();
+  showToast('Added! Use "Copy All as JSON" to save permanently.');
+}
+
+function copyAllJSON() {
+  const json = JSON.stringify(places, null, 2);
+  navigator.clipboard.writeText(json).then(() => {
+    showToast('JSON copied to clipboard!');
+  }).catch(() => {
+    // Fallback for older browsers
+    const ta = document.createElement('textarea');
+    ta.value = json;
+    ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('JSON copied to clipboard!');
+  });
+}
+
+// --- Toast ---
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// --- Utils ---
+function esc(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+<script>if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');</script>
+</body>
+</html>
